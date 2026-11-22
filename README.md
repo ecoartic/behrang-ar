@@ -52,7 +52,7 @@ docs/        roadmap, case study for portfolio
 ```
 
 ## Phase 0 — how to record a test clip
-1. Open `bench/capture/` on the phone (via GitHub Pages, HTTPS).
+1. Open **https://ecoartic.github.io/behrang-ar/bench/capture/** on the phone in Chrome/Safari (not inside an in-app browser).
 2. Allow camera + motion sensors, enter phone model and surface name.
 3. Record 20–30 s: 5 s still, slow circle around the surface, quick shake, move away and back.
 4. Two files download: `*.webm|mp4` (video) and `*.json` (IMU samples, frame timestamps, camera settings).
