@@ -1,0 +1,45 @@
+{
+  "device": "Samsung M13",
+  "surface": "rug",
+  "schema": "behrang-ar/bench@1",
+  "resolution": "720x1280",
+  "requested_fps": 30,
+  "shutter_lock": null,
+  "timing": {
+    "frames": 360,
+    "capture_fps": 24.463039686000876,
+    "capture_interval_sd_ms": 11.841108714462598,
+    "capture_interval_p95_ms": 54.69999999999709,
+    "latency_spread_ms": {
+      "mean": 20.400244444434065,
+      "sd": 9.573738872923194,
+      "max": 50.097999999983585
+    },
+    "dropped_frames": 2,
+    "callback_interval_sd_ms": 18.326494295455976,
+    "duration_s": 14.675472000000001
+  },
+  "imu": null,
+  "camera_controls": {
+    "exposureTime": true,
+    "iso": true,
+    "focusDistance": true,
+    "torch": false,
+    "zoom": true
+  },
+  "video": {
+    "frames": 362,
+    "sharpness_median": 227.19863305866573,
+    "sharpness_p10": 120.71619686503468,
+    "blurry_frames_pct": 6.077348066298343,
+    "orb_kp_median": 997.0,
+    "orb_kp_min": 690,
+    "lk_inlier_ratio_median": 0.9947575360419397,
+    "lk_inlier_ratio_p10": 0.9686411149825784,
+    "lk_weak_frames_pct": 0.0
+  },
+  "verdict": [
+    "camera delivers 24.5 fps (< requested) → auto-exposure lengthening frames; try shutter lock",
+    "no gyro data → fix sensor permission before Phase 1 gyro fusion"
+  ]
+}

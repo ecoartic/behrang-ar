@@ -25,6 +25,7 @@ ol{font-size:14px;color:var(--mut);padding-right:20px}
 <p class="mut">ویدیو + داده‌ی IMU (شتاب‌سنج/ژیروسکوپ) + زمان دقیق هر فریم را ضبط می‌کند تا tracker ها روی گوشی‌های مختلف با عدد مقایسه شوند. هیچ چیزی آپلود نمی‌شود؛ دو فایل دانلود می‌شود.</p>
 <label>مدل گوشی<input id="dev" placeholder="مثلاً Samsung A15"></label>
 <label>سطح<select id="surf"><option>card</option><option>book</option><option>wood-table</option><option>rug</option><option>newspaper</option><option>white-table</option><option>other</option></select></label>
+<label><input type="checkbox" id="shut" style="width:auto"> قفل شاتر ۱/۱۲۰ ثانیه (کاهش motion blur و ثابت ماندن fps؛ اگر گوشی پشتیبانی کند)</label>
 <label>کیفیت<select id="res"><option value="1280x720">720p</option><option value="1920x1080">1080p</option><option value="640x480">480p</option></select></label>
 <ol>
  <li>۵ ثانیه کاملاً ثابت روی سطح</li>
@@ -37,12 +38,21 @@ ol{font-size:14px;color:var(--mut);padding-right:20px}
 <video id="v" playsinline muted autoplay></video>
 <div class="stats"><div>fps<b id="sfps">–</b></div><div>IMU Hz<b id="simu">–</b></div><div>time<b id="stime">0.0</b></div></div>
 <p class="mut" id="st"></p>
+<p class="mut" id="sens">سنسورها: هنوز بررسی نشده</p>
 </main>
 <script>
 const $=id=>document.getElementById(id);
 let stream=null,rec=null,chunks=[],log=null,t0=0,recording=false,imuCount=0,frameCount=0,lastStat=0;
-function onMotion(e){if(!recording)return;const a=e.acceleration||{},g=e.accelerationIncludingGravity||{},r=e.rotationRate||{};
- log.imu.push([+(performance.now()-t0).toFixed(3),a.x,a.y,a.z,g.x,g.y,g.z,r.alpha,r.beta,r.gamma,e.interval]);imuCount++;}
+function onMotion(e){const a=e.acceleration||{},g=e.accelerationIncludingGravity||{},r=e.rotationRate||{};
+ if(r.alpha==null&&a.x==null&&g.x==null)return;liveSrc='devicemotion';rec4(e.timeStamp||performance.now(),[a.x,a.y,a.z],[g.x,g.y,g.z],[r.alpha,r.beta,r.gamma],e.interval);}
+let liveImu=0,liveSrc='',gsens=null;
+function rec4(t,a,g,r,iv){if(recording){log.imu.push([+(t-t0).toFixed(3),a[0],a[1],a[2],g[0],g[1],g[2],r[0],r[1],r[2],iv]);imuCount++;}liveImu++;}
+function startGeneric(){try{if(!('Gyroscope' in window))return false;
+ const gy=new Gyroscope({frequency:60}),ac=('LinearAccelerationSensor' in window)?new LinearAccelerationSensor({frequency:60}):null;let A=[null,null,null];
+ if(ac){ac.onreading=()=>{A=[ac.x,ac.y,ac.z]};ac.start();}
+ gy.onreading=()=>{if(liveSrc==='devicemotion')return;liveSrc='generic-sensor';const R=180/Math.PI;rec4(performance.now(),A,[null,null,null],[gy.z*R,gy.x*R,gy.y*R],null);};
+ gy.onerror=e=>{$('sens').textContent='Generic Sensor: '+e.error.name+' — '+e.error.message;};gy.start();gsens=gy;return true;}catch(e){$('sens').textContent='Generic Sensor: '+e.message;return false;}}
+setInterval(()=>{if(!stream)return;$('sens').textContent=liveImu?`✅ سنسور حرکت فعال: ${liveImu} Hz (${liveSrc})`:'❌ هیچ داده‌ای از سنسور حرکت نمی‌رسد. در Chrome: ⋮ ← Settings ← Site settings ← Motion sensors ← Allowed؛ و حالت صرفه‌جویی باتری را خاموش کنید.';$('sens').style.color=liveImu?'var(--ok)':'var(--bad)';liveImu=0;},1000);
 function onOrient(e){if(recording)log.orient.push([+(performance.now()-t0).toFixed(3),e.alpha,e.beta,e.gamma]);}
 function frameLoop(now,meta){const v=$('v');if(recording){log.frames.push([+(now-t0).toFixed(3),meta.mediaTime,meta.presentedFrames,meta.captureTime??null,meta.expectedDisplayTime-t0]);frameCount++;
   if(now-lastStat>1000){$('sfps').textContent=(frameCount*1000/(now-lastStat)).toFixed(1);$('simu').textContent=(imuCount*1000/(now-lastStat)).toFixed(0);$('stime').textContent=((now-t0)/1000).toFixed(1);frameCount=0;imuCount=0;lastStat=now;}}
@@ -54,6 +64,10 @@ $('open').onclick=async()=>{
   const [w,h]=$('res').value.split('x').map(Number);
   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'environment',width:{ideal:w},height:{ideal:h},frameRate:{ideal:30}}});
   $('v').srcObject=stream;addEventListener('devicemotion',onMotion);addEventListener('deviceorientation',onOrient);
+  if(navigator.permissions){for(const n of ['accelerometer','gyroscope']){try{const q=await navigator.permissions.query({name:n});if(q.state==='denied')imuNote+=` — ⚠️ ${n} در تنظیمات سایت مسدود است`;}catch(e){}}}
+  setTimeout(()=>{if(!liveSrc)startGeneric();},1500);
+  const tr0=stream.getVideoTracks()[0],cap=tr0.getCapabilities?tr0.getCapabilities():{};
+  if($('shut').checked){if(cap.exposureMode&&cap.exposureMode.includes('manual')&&cap.exposureTime){try{await tr0.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:Math.max(cap.exposureTime.min,Math.min(cap.exposureTime.max,83))}]});imuNote+=' — شاتر قفل شد (۱/۱۲۰)';}catch(e){imuNote+=' — قفل شاتر نشد: '+e.message;}}else imuNote+=' — این دوربین شاتر دستی نمی‌دهد';}
   $('v').requestVideoFrameCallback(frameLoop);$('rec').disabled=false;
   const s=stream.getVideoTracks()[0].getSettings();$('st').textContent='دوربین: '+s.width+'×'+s.height+' @'+(s.frameRate||'?')+'fps'+imuNote;
  }catch(err){$('st').textContent='خطا: '+err.message;}
@@ -61,9 +75,9 @@ $('open').onclick=async()=>{
 $('rec').onclick=()=>{
  if(recording){recording=false;rec.stop();$('rec').textContent='⏺ شروع ضبط';$('rec').classList.remove('r');return;}
  const tr=stream.getVideoTracks()[0];
- log={schema:'behrang-ar/bench@1',created:new Date().toISOString(),device:$('dev').value,surface:$('surf').value,ua:navigator.userAgent,
+ log={schema:'behrang-ar/bench@2',imuSource:liveSrc||null,shutterLock:$('shut').checked,created:new Date().toISOString(),device:$('dev').value,surface:$('surf').value,ua:navigator.userAgent,
   screen:[screen.width,screen.height,devicePixelRatio],camera:{settings:tr.getSettings(),capabilities:tr.getCapabilities?tr.getCapabilities():null,label:tr.label},
-  columns:{imu:['t_ms','ax','ay','az','gx','gy','gz','rot_alpha','rot_beta','rot_gamma','interval'],orient:['t_ms','alpha','beta','gamma'],frames:['t_ms','mediaTime','presentedFrames','captureTime','expectedDisplay_ms']},
+  columns:{note:'imu t_ms = event timeStamp - t0 (same clock as performance.now)',imu:['t_ms','ax','ay','az','gx','gy','gz','rot_alpha','rot_beta','rot_gamma','interval'],orient:['t_ms','alpha','beta','gamma'],frames:['t_ms','mediaTime','presentedFrames','captureTime','expectedDisplay_ms']},
   imu:[],orient:[],frames:[]};
  const mime=['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
  rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:8e6}:{});chunks=[];
