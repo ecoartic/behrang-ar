@@ -1,0 +1,53 @@
+{
+  "device": "Samsung M13",
+  "surface": "rug",
+  "schema": "behrang-ar/bench@2",
+  "resolution": "720x1280",
+  "requested_fps": 30,
+  "shutter_lock": true,
+  "timing": {
+    "frames": 413,
+    "capture_fps": 26.579787748782298,
+    "capture_interval_sd_ms": 18.681840520281686,
+    "capture_interval_p95_ms": 60.59999999997672,
+    "latency_spread_ms": {
+      "mean": 40.36326876509702,
+      "sd": 9.658302065943333,
+      "max": 74.29999999998836
+    },
+    "dropped_frames": 41,
+    "callback_interval_sd_ms": 20.158988878403207,
+    "duration_s": 15.507699999999998
+  },
+  "imu": {
+    "source": "devicemotion",
+    "rate_hz": 55.66474436887429,
+    "interval_sd_ms": 8.23658354713676,
+    "samples": 862,
+    "gyro_samples": 0
+  },
+  "camera_controls": {
+    "exposureTime": true,
+    "iso": true,
+    "focusDistance": true,
+    "torch": false,
+    "zoom": true
+  },
+  "video": {
+    "frames": 453,
+    "sharpness_median": 2.229058145989312,
+    "sharpness_p10": 0.7868793402589398,
+    "blurry_frames_pct": 100.0,
+    "orb_kp_median": 7,
+    "orb_kp_min": 0,
+    "lk_inlier_ratio_median": 0.9079623787825681,
+    "lk_inlier_ratio_p10": 0.6551724137931034,
+    "lk_weak_frames_pct": 5.048076923076923
+  },
+  "verdict": [
+    "camera delivers 26.6 fps (< requested) → auto-exposure lengthening frames; try shutter lock",
+    "41 dropped frames",
+    "no gyro data → fix sensor permission before Phase 1 gyro fusion",
+    "100% blurry frames"
+  ]
+}

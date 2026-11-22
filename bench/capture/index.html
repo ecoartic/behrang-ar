@@ -25,7 +25,7 @@ ol{font-size:14px;color:var(--mut);padding-right:20px}
 <p class="mut">ویدیو + داده‌ی IMU (شتاب‌سنج/ژیروسکوپ) + زمان دقیق هر فریم را ضبط می‌کند تا tracker ها روی گوشی‌های مختلف با عدد مقایسه شوند. هیچ چیزی آپلود نمی‌شود؛ دو فایل دانلود می‌شود.</p>
 <label>مدل گوشی<input id="dev" placeholder="مثلاً Samsung A15"></label>
 <label>سطح<select id="surf"><option>card</option><option>book</option><option>wood-table</option><option>rug</option><option>newspaper</option><option>white-table</option><option>other</option></select></label>
-<label><input type="checkbox" id="shut" style="width:auto"> قفل شاتر ۱/۱۲۰ ثانیه (کاهش motion blur و ثابت ماندن fps؛ اگر گوشی پشتیبانی کند)</label>
+<label>نوردهی<select id="expo"><option value="auto">خودکار گوشی</option><option value="smart">هوشمند: شاتر کوتاه + ISO بالا (برای tracking)</option><option value="lock120">قفل شاتر ۱/۱۲۰ (فقط نور زیاد)</option></select></label>
 <label>کیفیت<select id="res"><option value="1280x720">720p</option><option value="1920x1080">1080p</option><option value="640x480">480p</option></select></label>
 <ol>
  <li>۵ ثانیه کاملاً ثابت روی سطح</li>
@@ -39,20 +39,22 @@ ol{font-size:14px;color:var(--mut);padding-right:20px}
 <div class="stats"><div>fps<b id="sfps">–</b></div><div>IMU Hz<b id="simu">–</b></div><div>time<b id="stime">0.0</b></div></div>
 <p class="mut" id="st"></p>
 <p class="mut" id="sens">سنسورها: هنوز بررسی نشده</p>
+<p class="mut" id="expst"></p>
 </main>
 <script>
 const $=id=>document.getElementById(id);
 let stream=null,rec=null,chunks=[],log=null,t0=0,recording=false,imuCount=0,frameCount=0,lastStat=0;
 function onMotion(e){const a=e.acceleration||{},g=e.accelerationIncludingGravity||{},r=e.rotationRate||{};
- if(r.alpha==null&&a.x==null&&g.x==null)return;liveSrc='devicemotion';rec4(e.timeStamp||performance.now(),[a.x,a.y,a.z],[g.x,g.y,g.z],[r.alpha,r.beta,r.gamma],e.interval);}
-let liveImu=0,liveSrc='',gsens=null;
+ if(r.alpha==null&&a.x==null&&g.x==null)return;if(r.alpha!=null)gyroSeen=true;liveSrc=liveSrc||'devicemotion';rec4(e.timeStamp||performance.now(),[a.x,a.y,a.z],[g.x,g.y,g.z],[r.alpha,r.beta,r.gamma],e.interval);}
+let liveImu=0,liveSrc='',gsens=null,gyroSeen=false,gyroTried=false;
 function rec4(t,a,g,r,iv){if(recording){log.imu.push([+(t-t0).toFixed(3),a[0],a[1],a[2],g[0],g[1],g[2],r[0],r[1],r[2],iv]);imuCount++;}liveImu++;}
 function startGeneric(){try{if(!('Gyroscope' in window))return false;
  const gy=new Gyroscope({frequency:60}),ac=('LinearAccelerationSensor' in window)?new LinearAccelerationSensor({frequency:60}):null;let A=[null,null,null];
  if(ac){ac.onreading=()=>{A=[ac.x,ac.y,ac.z]};ac.start();}
- gy.onreading=()=>{if(liveSrc==='devicemotion')return;liveSrc='generic-sensor';const R=180/Math.PI;rec4(performance.now(),A,[null,null,null],[gy.z*R,gy.x*R,gy.y*R],null);};
+ gy.onreading=()=>{gyroSeen=true;liveSrc='generic-sensor';const R=180/Math.PI;rec4(performance.now(),A,[null,null,null],[gy.z*R,gy.x*R,gy.y*R],null);};
  gy.onerror=e=>{$('sens').textContent='Generic Sensor: '+e.error.name+' — '+e.error.message;};gy.start();gsens=gy;return true;}catch(e){$('sens').textContent='Generic Sensor: '+e.message;return false;}}
-setInterval(()=>{if(!stream)return;$('sens').textContent=liveImu?`✅ سنسور حرکت فعال: ${liveImu} Hz (${liveSrc})`:'❌ هیچ داده‌ای از سنسور حرکت نمی‌رسد. در Chrome: ⋮ ← Settings ← Site settings ← Motion sensors ← Allowed؛ و حالت صرفه‌جویی باتری را خاموش کنید.';$('sens').style.color=liveImu?'var(--ok)':'var(--bad)';liveImu=0;},1000);
+setInterval(()=>{if(!stream)return;if(liveImu&&!gyroSeen&&!gyroTried){gyroTried=true;startGeneric();}
+ $('sens').textContent=liveImu?`✅ سنسور حرکت: ${liveImu} Hz (${liveSrc}) — ژیروسکوپ: ${gyroSeen?'✅ دارد':'❌ ندارد (فقط شتاب‌سنج/جاذبه)'}`:'❌ هیچ داده‌ای از سنسور حرکت نمی‌رسد. در Chrome: ⋮ ← Settings ← Site settings ← Motion sensors ← Allowed؛ و حالت صرفه‌جویی باتری را خاموش کنید.';$('sens').style.color=liveImu?'var(--ok)':'var(--bad)';liveImu=0;},1000);
 function onOrient(e){if(recording)log.orient.push([+(performance.now()-t0).toFixed(3),e.alpha,e.beta,e.gamma]);}
 function frameLoop(now,meta){const v=$('v');if(recording){log.frames.push([+(now-t0).toFixed(3),meta.mediaTime,meta.presentedFrames,meta.captureTime??null,meta.expectedDisplayTime-t0]);frameCount++;
   if(now-lastStat>1000){$('sfps').textContent=(frameCount*1000/(now-lastStat)).toFixed(1);$('simu').textContent=(imuCount*1000/(now-lastStat)).toFixed(0);$('stime').textContent=((now-t0)/1000).toFixed(1);frameCount=0;imuCount=0;lastStat=now;}}
@@ -67,7 +69,11 @@ $('open').onclick=async()=>{
   if(navigator.permissions){for(const n of ['accelerometer','gyroscope']){try{const q=await navigator.permissions.query({name:n});if(q.state==='denied')imuNote+=` — ⚠️ ${n} در تنظیمات سایت مسدود است`;}catch(e){}}}
   setTimeout(()=>{if(!liveSrc)startGeneric();},1500);
   const tr0=stream.getVideoTracks()[0],cap=tr0.getCapabilities?tr0.getCapabilities():{};
-  if($('shut').checked){if(cap.exposureMode&&cap.exposureMode.includes('manual')&&cap.exposureTime){try{await tr0.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:Math.max(cap.exposureTime.min,Math.min(cap.exposureTime.max,83))}]});imuNote+=' — شاتر قفل شد (۱/۱۲۰)';}catch(e){imuNote+=' — قفل شاتر نشد: '+e.message;}}else imuNote+=' — این دوربین شاتر دستی نمی‌دهد';}
+  const em=$('expo').value;
+  if(em!=='auto'){if(cap.exposureMode&&cap.exposureMode.includes('manual')&&cap.exposureTime){
+    try{const et=em==='lock120'?83:166;await tr0.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:Math.max(cap.exposureTime.min,Math.min(cap.exposureTime.max,et))}]});
+     imuNote+=em==='lock120'?' — شاتر ۱/۱۲۰ قفل شد':' — نوردهی هوشمند فعال';if(em==='smart')smartExposure(tr0,cap);}catch(e){imuNote+=' — کنترل شاتر نشد: '+e.message;}}
+   else imuNote+=' — این دوربین شاتر دستی نمی‌دهد';}
   $('v').requestVideoFrameCallback(frameLoop);$('rec').disabled=false;
   const s=stream.getVideoTracks()[0].getSettings();$('st').textContent='دوربین: '+s.width+'×'+s.height+' @'+(s.frameRate||'?')+'fps'+imuNote;
  }catch(err){$('st').textContent='خطا: '+err.message;}
@@ -75,7 +81,7 @@ $('open').onclick=async()=>{
 $('rec').onclick=()=>{
  if(recording){recording=false;rec.stop();$('rec').textContent='⏺ شروع ضبط';$('rec').classList.remove('r');return;}
  const tr=stream.getVideoTracks()[0];
- log={schema:'behrang-ar/bench@2',imuSource:liveSrc||null,shutterLock:$('shut').checked,created:new Date().toISOString(),device:$('dev').value,surface:$('surf').value,ua:navigator.userAgent,
+ expoLog=[];log={schema:'behrang-ar/bench@3',imuSource:liveSrc||null,gyro:gyroSeen,exposure:$('expo').value,get expoLog(){return expoLog},created:new Date().toISOString(),device:$('dev').value,surface:$('surf').value,ua:navigator.userAgent,
   screen:[screen.width,screen.height,devicePixelRatio],camera:{settings:tr.getSettings(),capabilities:tr.getCapabilities?tr.getCapabilities():null,label:tr.label},
   columns:{note:'imu t_ms = event timeStamp - t0 (same clock as performance.now)',imu:['t_ms','ax','ay','az','gx','gy','gz','rot_alpha','rot_beta','rot_gamma','interval'],orient:['t_ms','alpha','beta','gamma'],frames:['t_ms','mediaTime','presentedFrames','captureTime','expectedDisplay_ms']},
   imu:[],orient:[],frames:[]};
@@ -88,6 +94,18 @@ $('rec').onclick=()=>{
   $('st').textContent=`ذخیره شد: ${log.frames.length} فریم، ${log.imu.length} نمونه‌ی IMU`;};
  t0=performance.now();lastStat=t0;recording=true;rec.start(1000);$('rec').textContent='⏹ پایان ضبط';$('rec').classList.add('r');
 };
+// smart exposure: keep shutter short (<=1/60, up to 1/30 only if ISO maxed) and drive ISO to hit target luminance
+let expoLog=[];
+function smartExposure(tr,cap){const v=$('v'),c=document.createElement('canvas');c.width=64;c.height=64;const x=c.getContext('2d',{willReadFrequently:true});
+ let et=166,iso=cap.iso?Math.min(cap.iso.max,400):null;const T=105;
+ const step=async()=>{if(!stream)return;try{x.drawImage(v,0,0,64,64);const p=x.getImageData(0,0,64,64).data;let L=0;for(let i=0;i<p.length;i+=4)L+=.299*p[i]+.587*p[i+1]+.114*p[i+2];L/=p.length/4;
+  const k=Math.max(.5,Math.min(2,T/Math.max(L,1)));
+  if(cap.iso){let ni=iso*k;if(ni>cap.iso.max){const rest=ni/cap.iso.max;ni=cap.iso.max;et=Math.min(333,et*rest);}else if(et>166&&k<1){et=Math.max(166,et*k);ni=iso;}iso=Math.max(cap.iso.min,Math.round(ni));}
+  else et=Math.max(cap.exposureTime.min,Math.min(333,et*k));
+  const adv={exposureMode:'manual',exposureTime:Math.round(et)};if(cap.iso)adv.iso=iso;await tr.applyConstraints({advanced:[adv]});
+  expoLog.push([+(performance.now()-t0).toFixed(1),+L.toFixed(1),Math.round(et),iso]);
+  $('expst').textContent=`نوردهی: روشنایی ${L.toFixed(0)}/255 · شاتر 1/${Math.round(10000/et)} · ISO ${iso??'auto'}${et>=333?' · ⚠️ نور کافی نیست':''}`;}catch(e){$('expst').textContent='نوردهی هوشمند: '+e.message;}
+  setTimeout(step,400);};step();}
 function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);}
 </script>
 </body>
