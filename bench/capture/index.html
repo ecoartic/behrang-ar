@@ -25,7 +25,7 @@ ol{font-size:14px;color:var(--mut);padding-right:20px}
 <p class="mut">ویدیو + داده‌ی IMU (شتاب‌سنج/ژیروسکوپ) + زمان دقیق هر فریم را ضبط می‌کند تا tracker ها روی گوشی‌های مختلف با عدد مقایسه شوند. هیچ چیزی آپلود نمی‌شود؛ دو فایل دانلود می‌شود.</p>
 <label>مدل گوشی<input id="dev" placeholder="مثلاً Samsung A15"></label>
 <label>سطح<select id="surf"><option>card</option><option>book</option><option>wood-table</option><option>rug</option><option>newspaper</option><option>white-table</option><option>other</option></select></label>
-<label>نوردهی<select id="expo"><option value="auto">خودکار گوشی</option><option value="smart">هوشمند: شاتر کوتاه + ISO بالا (برای tracking)</option><option value="lock120">قفل شاتر ۱/۱۲۰ (فقط نور زیاد)</option></select></label>
+<label>نوردهی<select id="expo"><option value="auto">خودکار گوشی</option><option value="fpslock">خودکار + قفل fps≥28 (پیشنهادی)</option><option value="smart">دستی: شاتر کوتاه + ISO (روی M13 ISO اعمال نمی‌شود)</option><option value="lock120">قفل شاتر ۱/۱۲۰ (فقط نور زیاد)</option></select></label>
 <label>کیفیت<select id="res"><option value="1280x720">720p</option><option value="1920x1080">1080p</option><option value="640x480">480p</option></select></label>
 <ol>
  <li>۵ ثانیه کاملاً ثابت روی سطح</li>
@@ -70,7 +70,8 @@ $('open').onclick=async()=>{
   setTimeout(()=>{if(!liveSrc)startGeneric();},1500);
   const tr0=stream.getVideoTracks()[0],cap=tr0.getCapabilities?tr0.getCapabilities():{};
   const em=$('expo').value;
-  if(em!=='auto'){if(cap.exposureMode&&cap.exposureMode.includes('manual')&&cap.exposureTime){
+  if(em==='fpslock'){try{await tr0.applyConstraints({frameRate:{min:28,ideal:30}});imuNote+=' — AE + fps≥28';}catch(e){imuNote+=' — قفل fps نشد: '+e.message;}}
+  else if(em!=='auto'){if(cap.exposureMode&&cap.exposureMode.includes('manual')&&cap.exposureTime){
     try{const et=em==='lock120'?83:166;await tr0.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:Math.max(cap.exposureTime.min,Math.min(cap.exposureTime.max,et))}]});
      imuNote+=em==='lock120'?' — شاتر ۱/۱۲۰ قفل شد':' — نوردهی هوشمند فعال';if(em==='smart')smartExposure(tr0,cap);}catch(e){imuNote+=' — کنترل شاتر نشد: '+e.message;}}
    else imuNote+=' — این دوربین شاتر دستی نمی‌دهد';}

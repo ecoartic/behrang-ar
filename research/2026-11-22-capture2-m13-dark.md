@@ -24,3 +24,8 @@ Files: `bench/results/2026-11-22_samsung-m13_rug_shutter.*`
 - Same phone, normal room light: smart exposure vs auto, same rug → compare blur + fps.
 - Low-texture surfaces (white table) with smart exposure.
 - Any phone **with** a gyro (for the fusion path).
+
+## Update 11:25 — field report on artarget smart exposure (M13)
+- Manual mode: the ISO value reported climbed 400 → 1200 while the image got **darker**. The constraint is accepted by Chrome but the M13 camera HAL does not apply manual ISO reliably (consistent with capture 2: `iso: 0` in settings after manual mode).
+- Fix (artarget v2, bench capture option `fpslock`): keep the phone's own auto-exposure (it drives ISO correctly) and only constrain `frameRate: {min: 28}` → AE must cap exposure near 1/30 s and raise ISO itself. If mean luma < 40 for 2 s, relax to `min: 10` (brightness first), re-lock when luma > 75 for 3 s. Status line shows measured camera fps.
+- To verify on M13: real fps ≥ 28 in room light with no darkening; blur vs capture 1.
